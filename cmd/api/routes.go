@@ -25,6 +25,14 @@ func (app *Config) Routes() http.Handler {
 	}))
 
 	mux.Use(middleware.Heartbeat("/ping"))
+
+	mux.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		payload := jsonResponse{
+			Error:   false,
+			Message: "healthy",
+		}
+		app.writeJSON(w, http.StatusOK, payload)
+	})
 	mux.Get("/", app.SnippetHome)
 	mux.Post("/snippet", app.CreateSnippet)
 	mux.Get("/search", app.SearchSnippet)
