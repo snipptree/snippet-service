@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: snippet-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: snippet-service
+  template:
+    metadata:
+      labels:
+        app: snippet-service
+    spec:
+      containers:
+      - name: snippet-service
+        image: 727646499255.dkr.ecr.ap-south-1.amazonaws.com/snipptree/snippet-service:latest
+        ports:
+        - containerPort: 8081
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: snipptree-service
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 8081
+  selector:
+    app: snipptree-service
