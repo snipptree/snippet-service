@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"snippet-service/data"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -37,14 +38,14 @@ func (app *Config) initS3Client() (*s3.Client, error) {
 }
 
 func (app *Config) CreateSnippet(w http.ResponseWriter, r *http.Request) {
-	log.Println("Starting CreateSnippet handler...")
+	log.Println("starting CreateSnippet handler...")
 
 	// Parse the multipart form data
-	log.Println("Parsing multipart form...")
+	log.Println("parsing multipart form...")
 	err := r.ParseMultipartForm(15 << 20) // 15 MB max memory
 	if err != nil {
-		log.Println("Error parsing form data:", err)
-		http.Error(w, "Unable to parse form data", http.StatusBadRequest)
+		log.Println("error parsing form data:", err)
+		app.errorJSON(w, errors.New("error parsing form data, memory limit exceeded"), http.StatusBadRequest)
 		return
 	}
 
@@ -54,14 +55,29 @@ func (app *Config) CreateSnippet(w http.ResponseWriter, r *http.Request) {
 	snippetType := r.FormValue("type")
 	outputType := r.FormValue("output_type")
 	outputText := r.FormValue("output")
-	log.Printf("Received form data - title: %s, snippet: %s, type: %s, output_type: %s", title, snippet, snippetType, outputType)
+	log.Printf("received form data - title: %s, snippet: %s, type: %s, output_type: %s", title, snippet, snippetType, outputType)
 
 	var imagePath string = ""
 
 	// Basic validation
 	if title == "" || snippet == "" || snippetType == "" || outputType == "" {
-		log.Println("Missing required fields")
-		http.Error(w, "Missing required fields", http.StatusBadRequest)
+		log.Println("missing required fields")
+		app.errorJSON(w, errors.New("Missing required fields"), http.StatusBadRequest)
+		return
+	}
+
+	// Check for existing snippet title (case-insensitive)
+	lowerCaseTitle := strings.ToLower(title)
+	exists, err := app.Models.Snippet.Exists(lowerCaseTitle)
+	if err != nil {
+		log.Println("error checking for existing snippet:", err)
+		app.errorJSON(w, err)
+		return
+	}
+
+	if exists {
+		log.Println("snippet with title already exists")
+		app.errorJSON(w, errors.New("a similar snippet already exists in our system. please try changing your snippet or title"), http.StatusBadRequest)
 		return
 	}
 
@@ -70,8 +86,8 @@ func (app *Config) CreateSnippet(w http.ResponseWriter, r *http.Request) {
 		log.Println("Handling image file upload...")
 		file, header, err := r.FormFile("image")
 		if err != nil {
-			log.Println("Error reading image file:", err)
-			http.Error(w, "Unable to read image file", http.StatusBadRequest)
+			log.Println("error reading image file:", err)
+			app.errorJSON(w, errors.New("unable to read image file"), http.StatusBadRequest)
 			return
 		}
 		defer file.Close()
@@ -79,26 +95,26 @@ func (app *Config) CreateSnippet(w http.ResponseWriter, r *http.Request) {
 		// Read file content into a buffer
 		fileBuffer := bytes.NewBuffer(nil)
 		if _, err = io.Copy(fileBuffer, file); err != nil {
-			log.Println("Error reading image file into buffer:", err)
-			http.Error(w, "Failed to read image file", http.StatusInternalServerError)
+			log.Println("error reading image file into buffer:", err)
+			app.errorJSON(w, errors.New("error reading image file into buffer"), http.StatusBadRequest)
 			return
 		}
 
 		// Initialize the S3 client
-		log.Println("Initializing S3 client...")
+		log.Println("initializing S3 client...")
 		s3Client, err := app.initS3Client()
 		if err != nil {
-			log.Println("Error initializing S3 client:", err)
-			http.Error(w, "Unable to initialize S3 client", http.StatusInternalServerError)
+			log.Println("error initializing S3 client:", err)
+			app.errorJSON(w, errors.New("unable to initialize S3 client"), http.StatusInternalServerError)
 			return
 		}
 
 		// Define the S3 key (filename in the bucket)
 		s3Key := fmt.Sprintf("%s-%s", time.Now().Format("20060102-150405"), filepath.Base(header.Filename))
-		log.Printf("Generated S3 key: %s", s3Key)
+		log.Printf("generated S3 key: %s", s3Key)
 
 		// Upload the file to S3
-		log.Println("Uploading image to S3...")
+		log.Println("uploading image to S3...")
 		uploader := manager.NewUploader(s3Client)
 		_, err = uploader.Upload(context.TODO(), &s3.PutObjectInput{
 			Bucket:      aws.String("snippet-outputs"),
@@ -108,18 +124,18 @@ func (app *Config) CreateSnippet(w http.ResponseWriter, r *http.Request) {
 		})
 
 		if err != nil {
-			log.Println("Error uploading image to S3:", err)
-			http.Error(w, "Unable to upload image to S3", http.StatusInternalServerError)
+			log.Println("error uploading image to S3:", err)
+			app.errorJSON(w, errors.New("unable to upload image to S3"), http.StatusInternalServerError)
 			return
 		}
 
 		// Build the S3 image URL
 		imagePath = fmt.Sprintf("https://%s.s3.amazonaws.com/%s", "snippet-outputs", s3Key)
-		log.Printf("Image successfully uploaded. S3 URL: %s", imagePath)
+		log.Printf("image successfully uploaded. S3 URL: %s", imagePath)
 	}
 
 	// Prepare the snippet data
-	log.Println("Preparing snippet data...")
+	log.Println("preparing snippet data...")
 	req := data.Snippet{
 		Title:      title,
 		Snippet:    snippet,
@@ -130,22 +146,22 @@ func (app *Config) CreateSnippet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Insert the snippet into the database
-	log.Println("Inserting snippet into the database...")
+	log.Println("inserting snippet into the database...")
 	err = app.Models.Snippet.Insert(req)
 	if err != nil {
-		log.Println("Error inserting snippet:", err)
+		log.Println("error inserting snippet:", err)
 		app.errorJSON(w, err)
 		return
 	}
-	log.Println("Snippet inserted successfully")
+	log.Println("snippet inserted successfully")
 
 	// Send a success response
-	log.Println("Sending success response...")
+	log.Println("sending success response...")
 	var payload jsonResponse
 	payload.Error = false
-	payload.Message = "Snippet saved successfully"
+	payload.Message = "snippet saved successfully"
 	app.writeJSON(w, http.StatusOK, payload)
-	log.Println("CreateSnippet handler completed successfully.")
+	log.Println("createSnippet handler completed successfully.")
 }
 
 func (app *Config) SearchSnippet(w http.ResponseWriter, r *http.Request) {

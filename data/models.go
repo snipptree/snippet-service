@@ -180,3 +180,27 @@ func (l *Snippet) Aggregate(pipeline any) ([]*Snippet, error) {
 
 	return snippets, nil
 }
+
+func (l *Snippet) Exists(title string) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	collection := client.Database(constants.DATABASE_NAME).Collection(constants.SNIPPETS_COLLECTION)
+
+	// Use a case-insensitive regular expression to match the title
+	pattern := bson.M{"title": bson.M{"$regex": title, "$options": "i"}}
+
+	// Find one document with the matching title
+	result := collection.FindOne(ctx, pattern)
+
+	// Check if a document was found
+	if result.Err() != nil {
+		if err := result.Err(); err != nil && err != mongo.ErrNoDocuments {
+			return false, err
+		}
+	} else {
+		return true, nil
+	}
+
+	return false, nil
+}
