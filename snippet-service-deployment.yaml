@@ -15,13 +15,20 @@ spec:
       containers:
       - name: snippet-service
         image: 727646499255.dkr.ecr.ap-south-1.amazonaws.com/snippet-service:latest
+        # resources:
+        #   requests: 
+        #     cpu: "100m"
+        #     memory: "128Mi"
+        #   limits:
+        #     cpu: "500m"
+        #     memory: "256Mi"
         resources:
-          requests: 
-            cpu: "100m"
-            memory: "128Mi"
+          requests:
+            cpu: "50m"  # Reduced CPU request
+            memory: "64Mi"  # Reduced memory request
           limits:
-            cpu: "500m"
-            memory: "256Mi"
+            cpu: "100m"  # Reduced CPU limit
+            memory: "128Mi"  # Reduced memory limit
         ports:
         - containerPort: 80  # snippet service runs on port 80
 ---
