@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -196,13 +197,106 @@ func (app *Config) SearchSnippet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(snippets) == 0 {
+		generatedSnippet, err := app.fetchGeneratedSnippet(query)
+		if err != nil {
+			log.Println("error fetching from OpenAI:", err)
+			app.errorJSON(w, err, http.StatusInternalServerError)
+			return
+		}
+
+		err = app.Models.Snippet.Insert(*generatedSnippet)
+		if err != nil {
+			log.Println("error inserting generated snippet:", err)
+			app.errorJSON(w, err, http.StatusInternalServerError)
+			return
+		}
+
+		snippets = append(snippets, generatedSnippet)
+	}
+
 	log.Println("==Search Snippet Results==")
 	log.Println(snippets)
 
+	responseMessage := "We've got the best snippets for you!"
+
+	if len(snippets) == 0 {
+		responseMessage = "No snippets found for your search, Please comeback later!"
+	}
+
 	payload := jsonResponse{
 		Error:   false,
-		Message: "We've got the best snippets for you!",
+		Message: responseMessage,
 		Data:    snippets,
 	}
 	app.writeJSON(w, http.StatusOK, payload)
+}
+
+func (app *Config) fetchGeneratedSnippet(query string) (*data.Snippet, error) {
+	apiKey := "REDACTED_OPENAI_API_KEY"
+
+	openAIPayload := map[string]interface{}{
+		"model": "gpt-4", // use the correct OpenAI model name
+		"messages": []map[string]string{
+			{
+				"role":    "system",
+				"content": "You are a helpful assistant that generates code snippets.",
+			},
+			{
+				"role":    "user",
+				"content": fmt.Sprintf("Generate a code snippet for the following query: %s. Your response should have only code, no additional text.", query),
+			},
+		},
+	}
+	payloadBytes, err := json.Marshal(openAIPayload)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", "https://api.openai.com/v1/chat/completions", bytes.NewBuffer(payloadBytes))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var openAIResponse struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(&openAIResponse)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(openAIResponse.Choices) > 0 {
+		generatedCode := openAIResponse.Choices[0].Message.Content
+
+		newSnippet := data.Snippet{
+			Title:      query,
+			Snippet:    generatedCode,
+			Type:       "public",
+			OutputType: "text",
+			Output:     "",
+			Source:     "AI",
+			CreatedAt:  time.Now(),
+			UpdatedAt:  time.Now(),
+		}
+
+		return &newSnippet, nil
+	} else {
+		return nil, errors.New("no snippet available from OpenAI")
+	}
 }

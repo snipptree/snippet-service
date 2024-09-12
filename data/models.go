@@ -34,6 +34,7 @@ type Snippet struct {
 	OutputType string    `bson:"output_type" json:"output_type"`
 	Output     string    `bson:"output,omitempty" json:"output,omitempty"`
 	ImagePath  string    `bson:"image,omitempty" json:"image,omitempty"`
+	Source     string    `bson:"source,omitempty" json:"source,omitempty"`
 	CreatedAt  time.Time `bson:"created_at" json:"created_at"`
 	UpdatedAt  time.Time `bson:"updated_at" json:"updated_at"`
 }
