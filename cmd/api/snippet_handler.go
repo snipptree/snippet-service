@@ -244,7 +244,7 @@ func (app *Config) fetchGeneratedSnippet(query string) (*data.Snippet, error) {
 			},
 			{
 				"role":    "user",
-				"content": fmt.Sprintf("Generate a code snippet for the following query: %s. Your response should have only code, no additional text.", query),
+				"content": fmt.Sprintf("Generate a code snippet for the following query: %s. Your response should have only code, there should not be explanatory text. Your response should have code thats all.", query),
 			},
 		},
 	}
