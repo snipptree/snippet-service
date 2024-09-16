@@ -63,13 +63,13 @@ func (app *Config) CreateSnippet(w http.ResponseWriter, r *http.Request) {
 	// Basic validation
 	if title == "" || snippet == "" || snippetType == "" || outputType == "" {
 		log.Println("missing required fields")
-		app.errorJSON(w, errors.New("Missing required fields"), http.StatusBadRequest)
+		app.errorJSON(w, errors.New("missing required fields"), http.StatusBadRequest)
 		return
 	}
 
 	// Check for existing snippet title (case-insensitive)
 	lowerCaseTitle := strings.ToLower(title)
-	exists, err := app.Models.Snippet.Exists(lowerCaseTitle)
+	exists, err := app.Repository.Exists(lowerCaseTitle)
 	if err != nil {
 		log.Println("error checking for existing snippet:", err)
 		app.errorJSON(w, err)
@@ -148,7 +148,7 @@ func (app *Config) CreateSnippet(w http.ResponseWriter, r *http.Request) {
 
 	// Insert the snippet into the database
 	log.Println("inserting snippet into the database...")
-	err = app.Models.Snippet.Insert(req)
+	err = app.Repository.Insert(req)
 	if err != nil {
 		log.Println("error inserting snippet:", err)
 		app.errorJSON(w, err)
@@ -190,7 +190,7 @@ func (app *Config) SearchSnippet(w http.ResponseWriter, r *http.Request) {
 	// Create a pipeline with the search stage
 	pipeline := mongo.Pipeline{searchStage}
 
-	snippets, err := app.Models.Snippet.Aggregate(pipeline)
+	snippets, err := app.Repository.Aggregate(pipeline)
 	if err != nil {
 		log.Println("Error executing search:", err)
 		app.errorJSON(w, err, http.StatusInternalServerError)
@@ -205,7 +205,7 @@ func (app *Config) SearchSnippet(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		err = app.Models.Snippet.Insert(*generatedSnippet)
+		err = app.Repository.Insert(*generatedSnippet)
 		if err != nil {
 			log.Println("error inserting generated snippet:", err)
 			app.errorJSON(w, err, http.StatusInternalServerError)

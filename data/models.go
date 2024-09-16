@@ -12,18 +12,14 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-var client *mongo.Client
-
-func New(mongo *mongo.Client) Models {
-	client = mongo
-
-	return Models{
-		Snippet: Snippet{},
-	}
+type SnippetRepository struct {
+	client *mongo.Client
 }
 
-type Models struct {
-	Snippet Snippet
+func NewSnippetRepository(mongoClient *mongo.Client) *SnippetRepository {
+	return &SnippetRepository{
+		client: mongoClient,
+	}
 }
 
 type Snippet struct {
@@ -39,8 +35,8 @@ type Snippet struct {
 	UpdatedAt  time.Time `bson:"updated_at" json:"updated_at"`
 }
 
-func (l *Snippet) Insert(snippet Snippet) error {
-	collection := client.Database(constants.DATABASE_NAME).Collection(constants.SNIPPETS_COLLECTION)
+func (repo *SnippetRepository) Insert(snippet Snippet) error {
+	collection := repo.client.Database(constants.DATABASE_NAME).Collection(constants.SNIPPETS_COLLECTION)
 	_, err := collection.InsertOne(context.TODO(), Snippet{
 		Title:      snippet.Title,
 		Snippet:    snippet.Snippet,
@@ -58,11 +54,11 @@ func (l *Snippet) Insert(snippet Snippet) error {
 	return nil
 }
 
-func (l *Snippet) All() ([]*Snippet, error) {
+func (repo *SnippetRepository) All() ([]*Snippet, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	collection := client.Database(constants.DATABASE_NAME).Collection(constants.SNIPPETS_COLLECTION)
+	collection := repo.client.Database(constants.DATABASE_NAME).Collection(constants.SNIPPETS_COLLECTION)
 	opts := options.Find()
 	opts.SetSort(bson.D{{Key: "created_at", Value: -1}})
 	cursor, err := collection.Find(context.TODO(), bson.D{}, opts)
@@ -86,11 +82,11 @@ func (l *Snippet) All() ([]*Snippet, error) {
 	return snippets, nil
 }
 
-func (l *Snippet) GetOne(id string) (*Snippet, error) {
+func (repo *SnippetRepository) GetOne(id string) (*Snippet, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	collection := client.Database(constants.DATABASE_NAME).Collection(constants.SNIPPETS_COLLECTION)
+	collection := repo.client.Database(constants.DATABASE_NAME).Collection(constants.SNIPPETS_COLLECTION)
 
 	objectId, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
@@ -106,11 +102,11 @@ func (l *Snippet) GetOne(id string) (*Snippet, error) {
 	return &Snippet, nil
 }
 
-func (l *Snippet) DropCollection() error {
+func (repo *SnippetRepository) DropCollection() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	collection := client.Database(constants.DATABASE_NAME).Collection(constants.SNIPPETS_COLLECTION)
+	collection := repo.client.Database(constants.DATABASE_NAME).Collection(constants.SNIPPETS_COLLECTION)
 
 	if err := collection.Drop(ctx); err != nil {
 		return err
@@ -119,13 +115,13 @@ func (l *Snippet) DropCollection() error {
 	return nil
 }
 
-func (l *Snippet) Update() (*mongo.UpdateResult, error) {
+func (repo *SnippetRepository) Update(snippet Snippet) (*mongo.UpdateResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	collection := client.Database(constants.DATABASE_NAME).Collection(constants.SNIPPETS_COLLECTION)
+	collection := repo.client.Database(constants.DATABASE_NAME).Collection(constants.SNIPPETS_COLLECTION)
 
-	objectId, err := primitive.ObjectIDFromHex(l.ID)
+	objectId, err := primitive.ObjectIDFromHex(snippet.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -135,10 +131,10 @@ func (l *Snippet) Update() (*mongo.UpdateResult, error) {
 		bson.M{"_id": objectId},
 		bson.D{
 			{Key: "$set", Value: bson.D{
-				{Key: "title", Value: l.Title},
-				{Key: "snippet", Value: l.Snippet},
-				{Key: "type", Value: l.Type},
-				{Key: "output", Value: l.Output},
+				{Key: "title", Value: snippet.Title},
+				{Key: "snippet", Value: snippet.Snippet},
+				{Key: "type", Value: snippet.Type},
+				{Key: "output", Value: snippet.Output},
 				{Key: "updated_at", Value: time.Now()},
 			}},
 		},
@@ -150,11 +146,11 @@ func (l *Snippet) Update() (*mongo.UpdateResult, error) {
 	return updateResult, nil
 }
 
-func (l *Snippet) Aggregate(pipeline any) ([]*Snippet, error) {
+func (repo *SnippetRepository) Aggregate(pipeline any) ([]*Snippet, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	collection := client.Database(constants.DATABASE_NAME).Collection(constants.SNIPPETS_COLLECTION)
+	collection := repo.client.Database(constants.DATABASE_NAME).Collection(constants.SNIPPETS_COLLECTION)
 
 	cursor, err := collection.Aggregate(
 		ctx,
@@ -182,11 +178,11 @@ func (l *Snippet) Aggregate(pipeline any) ([]*Snippet, error) {
 	return snippets, nil
 }
 
-func (l *Snippet) Exists(title string) (bool, error) {
+func (repo *SnippetRepository) Exists(title string) (bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	collection := client.Database(constants.DATABASE_NAME).Collection(constants.SNIPPETS_COLLECTION)
+	collection := repo.client.Database(constants.DATABASE_NAME).Collection(constants.SNIPPETS_COLLECTION)
 
 	// Use a case-insensitive regular expression to match the title
 	pattern := bson.M{"title": bson.M{"$regex": title, "$options": "i"}}

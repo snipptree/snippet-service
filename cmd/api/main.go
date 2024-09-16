@@ -23,7 +23,7 @@ const (
 var client *mongo.Client
 
 type Config struct {
-	Models data.Models
+	Repository data.Repository
 }
 
 func main() {
@@ -45,9 +45,8 @@ func main() {
 		}
 	}()
 
-	app := Config{
-		Models: data.New(client),
-	}
+	app := Config{}
+	app.setUpRepo(mongoClient)
 
 	app.Serve()
 }
@@ -73,4 +72,9 @@ func connectToMongo() (*mongo.Client, error) {
 	}
 	log.Println("connected to mongo db")
 	return c, nil
+}
+
+func (app *Config) setUpRepo(client *mongo.Client) {
+	repo := data.NewSnippetRepository(client)
+	app.Repository = repo
 }
