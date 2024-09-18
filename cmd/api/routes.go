@@ -3,6 +3,8 @@ package main
 import (
 	"net/http"
 
+	appMiddleware "snippet-service/middleware"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -11,8 +13,7 @@ import (
 func (app *Config) Routes() http.Handler {
 	mux := chi.NewRouter()
 
-	//specify who is allowed to connect
-	mux.Use(cors.Handler(cors.Options{
+	corsMiddleware := cors.Handler(cors.Options{
 		AllowedOrigins: []string{
 			"https://*",
 			"http://*",
@@ -22,7 +23,10 @@ func (app *Config) Routes() http.Handler {
 		ExposedHeaders:   []string{"Link"},
 		AllowCredentials: true,
 		MaxAge:           300,
-	}))
+	})
+
+	//specify who is allowed to connect
+	mux.Use(corsMiddleware)
 
 	mux.Use(middleware.Heartbeat("/ping"))
 
@@ -34,8 +38,14 @@ func (app *Config) Routes() http.Handler {
 		app.writeJSON(w, http.StatusOK, payload)
 	})
 	mux.Get("/", app.SnippetHome)
-	mux.Post("/snippet", app.CreateSnippet)
 	mux.Get("/search", app.SearchSnippet)
+
+	protectedRouter := chi.NewRouter()
+	protectedRouter.Use(corsMiddleware)
+	protectedRouter.Use(appMiddleware.JWTMiddleware)
+	protectedRouter.Post("/snippet", app.CreateSnippet)
+
+	mux.Mount("/", protectedRouter)
 
 	return mux
 }

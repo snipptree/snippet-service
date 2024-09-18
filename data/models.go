@@ -2,6 +2,7 @@ package data
 
 import (
 	"context"
+	"errors"
 	"log"
 	"snippet-service/constants"
 	"time"
@@ -24,6 +25,7 @@ func NewSnippetRepository(mongoClient *mongo.Client) *SnippetRepository {
 
 type Snippet struct {
 	ID         string    `bson:"_id,omitempty" json:"id,omitempty"`
+	UserId     string    `bson:"user_id,omitempty" json:"user_id,omitempty"`
 	Title      string    `bson:"title" json:"title"`
 	Snippet    string    `bson:"snippet" json:"snippet"`
 	Type       string    `bson:"type" json:"type"`
@@ -35,9 +37,10 @@ type Snippet struct {
 	UpdatedAt  time.Time `bson:"updated_at" json:"updated_at"`
 }
 
-func (repo *SnippetRepository) Insert(snippet Snippet) error {
+func (repo *SnippetRepository) Insert(snippet Snippet) (string, error) {
 	collection := repo.client.Database(constants.DATABASE_NAME).Collection(constants.SNIPPETS_COLLECTION)
-	_, err := collection.InsertOne(context.TODO(), Snippet{
+	result, err := collection.InsertOne(context.TODO(), Snippet{
+		UserId:     snippet.UserId,
 		Title:      snippet.Title,
 		Snippet:    snippet.Snippet,
 		Type:       snippet.Type,
@@ -49,9 +52,19 @@ func (repo *SnippetRepository) Insert(snippet Snippet) error {
 	})
 	if err != nil {
 		log.Println("Error inserting into snippets", err)
-		return err
+		return "", err
 	}
-	return nil
+
+	// Assert the InsertedID to be of type primitive.ObjectID
+	var id string
+	if objectID, ok := result.InsertedID.(primitive.ObjectID); ok {
+		id = objectID.Hex() // Convert to string representation
+	} else {
+		log.Println("Error: InsertedID is not of type primitive.ObjectID")
+		return "", errors.New("failed to retrieve snippet ID")
+	}
+
+	return id, nil
 }
 
 func (repo *SnippetRepository) All() ([]*Snippet, error) {

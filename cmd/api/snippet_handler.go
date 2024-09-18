@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"snippet-service/data"
+	"snippet-service/middleware"
 	"strings"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/golang-jwt/jwt"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -41,9 +43,31 @@ func (app *Config) initS3Client() (*s3.Client, error) {
 func (app *Config) CreateSnippet(w http.ResponseWriter, r *http.Request) {
 	log.Println("starting CreateSnippet handler...")
 
+	// Extract user email from JWT
+	tokenString := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	token, err := middleware.ValidateJWT(tokenString)
+	if err != nil || !token.Valid {
+		log.Println("invalid token:", err)
+		app.errorJSON(w, errors.New("invalid token"), http.StatusUnauthorized)
+		return
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		log.Println("invalid token claims")
+		app.errorJSON(w, errors.New("invalid token claims"), http.StatusUnauthorized)
+		return
+	}
+	userEmail, ok := claims["email"].(string)
+	if !ok {
+		log.Println("email claim not found")
+		app.errorJSON(w, errors.New("email claim not found"), http.StatusUnauthorized)
+		return
+	}
+
 	// Parse the multipart form data
 	log.Println("parsing multipart form...")
-	err := r.ParseMultipartForm(15 << 20) // 15 MB max memory
+	err = r.ParseMultipartForm(15 << 20) // 15 MB max memory
 	if err != nil {
 		log.Println("error parsing form data:", err)
 		app.errorJSON(w, errors.New("error parsing form data, memory limit exceeded"), http.StatusBadRequest)
@@ -58,7 +82,7 @@ func (app *Config) CreateSnippet(w http.ResponseWriter, r *http.Request) {
 	outputText := r.FormValue("output")
 	log.Printf("received form data - title: %s, snippet: %s, type: %s, output_type: %s", title, snippet, snippetType, outputType)
 
-	var imagePath string = ""
+	var imagePath string
 
 	// Basic validation
 	if title == "" || snippet == "" || snippetType == "" || outputType == "" {
@@ -138,6 +162,7 @@ func (app *Config) CreateSnippet(w http.ResponseWriter, r *http.Request) {
 	// Prepare the snippet data
 	log.Println("preparing snippet data...")
 	req := data.Snippet{
+		UserId:     userEmail,
 		Title:      title,
 		Snippet:    snippet,
 		Type:       snippetType,
@@ -148,13 +173,22 @@ func (app *Config) CreateSnippet(w http.ResponseWriter, r *http.Request) {
 
 	// Insert the snippet into the database
 	log.Println("inserting snippet into the database...")
-	err = app.Repository.Insert(req)
+	snippetID, err := app.Repository.Insert(req)
 	if err != nil {
 		log.Println("error inserting snippet:", err)
 		app.errorJSON(w, err)
 		return
 	}
 	log.Println("snippet inserted successfully")
+
+	// Update the user's document with the new snippet ID
+	log.Println("updating user document with new snippet ID...")
+	err = app.updateUserSnippets(userEmail, snippetID)
+	if err != nil {
+		log.Println("error updating user document:", err)
+		app.errorJSON(w, err)
+		return
+	}
 
 	// Send a success response
 	log.Println("sending success response...")
@@ -163,6 +197,23 @@ func (app *Config) CreateSnippet(w http.ResponseWriter, r *http.Request) {
 	payload.Message = "snippet saved successfully"
 	app.writeJSON(w, http.StatusOK, payload)
 	log.Println("createSnippet handler completed successfully.")
+}
+
+// updateUserSnippets updates the user's document to add the new snippet ID to their snippets array
+func (app *Config) updateUserSnippets(userEmail string, snippetID string) error {
+	// Retrieve the user by email
+	user, err := app.UserRepo.GetByEmail(userEmail)
+	if err != nil {
+		return err
+	}
+
+	// Add the snippet ID to the user's snippets array
+	user.Snippets = append(user.Snippets, snippetID)
+
+	// Update the user's document in the database
+	return app.UserRepo.Update(*user, bson.M{
+		"snippets": user.Snippets,
+	})
 }
 
 func (app *Config) SearchSnippet(w http.ResponseWriter, r *http.Request) {
@@ -205,7 +256,7 @@ func (app *Config) SearchSnippet(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		err = app.Repository.Insert(*generatedSnippet)
+		_, err = app.Repository.Insert(*generatedSnippet)
 		if err != nil {
 			log.Println("error inserting generated snippet:", err)
 			app.errorJSON(w, err, http.StatusInternalServerError)
