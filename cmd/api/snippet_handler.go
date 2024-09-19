@@ -44,30 +44,11 @@ func (app *Config) CreateSnippet(w http.ResponseWriter, r *http.Request) {
 	log.Println("starting CreateSnippet handler...")
 
 	// Extract user email from JWT
-	tokenString := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-	token, err := middleware.ValidateJWT(tokenString)
-	if err != nil || !token.Valid {
-		log.Println("invalid token:", err)
-		app.errorJSON(w, errors.New("invalid token"), http.StatusUnauthorized)
-		return
-	}
-
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		log.Println("invalid token claims")
-		app.errorJSON(w, errors.New("invalid token claims"), http.StatusUnauthorized)
-		return
-	}
-	userEmail, ok := claims["email"].(string)
-	if !ok {
-		log.Println("email claim not found")
-		app.errorJSON(w, errors.New("email claim not found"), http.StatusUnauthorized)
-		return
-	}
+	userEmail := app.GetEmailFromAuthToken(w, r)
 
 	// Parse the multipart form data
 	log.Println("parsing multipart form...")
-	err = r.ParseMultipartForm(15 << 20) // 15 MB max memory
+	err := r.ParseMultipartForm(15 << 20) // 15 MB max memory
 	if err != nil {
 		log.Println("error parsing form data:", err)
 		app.errorJSON(w, errors.New("error parsing form data, memory limit exceeded"), http.StatusBadRequest)
@@ -197,6 +178,37 @@ func (app *Config) CreateSnippet(w http.ResponseWriter, r *http.Request) {
 	payload.Message = "snippet saved successfully"
 	app.writeJSON(w, http.StatusOK, payload)
 	log.Println("createSnippet handler completed successfully.")
+}
+
+func (app *Config) GetUserSnippets(w http.ResponseWriter, r *http.Request) {
+	log.Println("starting CreateSnippet handler...")
+
+	// Extract user email from JWT
+	userEmail := app.GetEmailFromAuthToken(w, r)
+
+	if userEmail != "" {
+		snippets, err := app.UserRepo.GetUserSnippets(userEmail)
+		if err != nil {
+			log.Println("error getting user snippets:", err)
+			app.errorJSON(w, err)
+			return
+		}
+
+		payload := jsonResponse{
+			Error:   false,
+			Message: "Hurray, Here are your beautiful snippets.",
+			Data:    snippets,
+		}
+
+		app.writeJSON(w, http.StatusOK, payload)
+	} else {
+		payload := jsonResponse{
+			Error:   true,
+			Message: "Unable to find user email",
+		}
+		app.writeJSON(w, http.StatusUnauthorized, payload)
+	}
+
 }
 
 // updateUserSnippets updates the user's document to add the new snippet ID to their snippets array
@@ -350,4 +362,29 @@ func (app *Config) fetchGeneratedSnippet(query string) (*data.Snippet, error) {
 	} else {
 		return nil, errors.New("no snippet available from OpenAI")
 	}
+}
+
+func (app *Config) GetEmailFromAuthToken(w http.ResponseWriter, r *http.Request) string {
+	// Extract user email from JWT
+	tokenString := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	token, err := middleware.ValidateJWT(tokenString)
+	if err != nil || !token.Valid {
+		log.Println("invalid token:", err)
+		app.errorJSON(w, errors.New("invalid token"), http.StatusUnauthorized)
+		return ""
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		log.Println("invalid token claims")
+		app.errorJSON(w, errors.New("invalid token claims"), http.StatusUnauthorized)
+		return ""
+	}
+	userEmail, ok := claims["email"].(string)
+	if !ok {
+		log.Println("email claim not found")
+		app.errorJSON(w, errors.New("email claim not found"), http.StatusUnauthorized)
+		return ""
+	}
+	return userEmail
 }

@@ -44,6 +44,7 @@ func (app *Config) Routes() http.Handler {
 	protectedRouter.Use(corsMiddleware)
 	protectedRouter.Use(appMiddleware.JWTMiddleware)
 	protectedRouter.Post("/snippet", app.CreateSnippet)
+	protectedRouter.Get("/user/snippets", app.GetUserSnippets)
 
 	mux.Mount("/", protectedRouter)
 

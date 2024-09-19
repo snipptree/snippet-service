@@ -20,6 +20,7 @@ type UserRepo interface {
 	GetAll() ([]*User, error)
 	GetByEmail(email string) (*User, error)
 	GetOne(userEmail string) (*User, error)
+	GetUserSnippets(userEmail string) ([]Snippet, error)
 	Update(user User, updateMap bson.M) error
 	Delete(id string) error
 }

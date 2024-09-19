@@ -93,6 +93,40 @@ func (repo *UserRepository) GetOne(userEmail string) (*User, error) {
 	return &user, nil
 }
 
+func (repo *UserRepository) GetUserSnippets(userEmail string) ([]Snippet, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	userCollection := repo.client.Database(constants.DATABASE_NAME).Collection(constants.USERS_COLLECTION)
+	snippetCollection := repo.client.Database(constants.DATABASE_NAME).Collection(constants.SNIPPETS_COLLECTION)
+
+	var user User
+	err := userCollection.FindOne(ctx, bson.M{"email": userEmail}).Decode(&user)
+	if err != nil {
+		return nil, err
+	}
+
+	var snippets []Snippet
+
+	for _, snippetId := range user.Snippets {
+		objectId, err := primitive.ObjectIDFromHex(snippetId)
+		if err != nil {
+			log.Printf("invalid ObjectID for snippetId %s: %v", snippetId, err)
+			continue
+		}
+
+		var snippet Snippet
+		err = snippetCollection.FindOne(ctx, bson.M{"_id": objectId}).Decode(&snippet)
+		if err != nil {
+			log.Printf("error finding snippet details snippetId %s: %v", snippetId, err)
+			continue
+		}
+		snippets = append(snippets, snippet)
+	}
+
+	return snippets, nil
+}
+
 // Update updates one user document.
 func (repo *UserRepository) Update(user User, updateMap bson.M) error {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
