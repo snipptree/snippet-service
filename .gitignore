@@ -1,1 +1,35 @@
-snippetApp
+# Binaries for programs and plugins (Windows, Linux, macOS)
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Ignore Go binaries (Linux and macOS, which don't have extensions)
+# Typical binary output of `go build` or `go install`
+/bin/
+/dist/
+/build/
+*.o
+*.a
+*.out
+*.[!o]
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Ignore .env file (configuration or secrets)
+.env
+
+# macOS system files
+.DS_Store
