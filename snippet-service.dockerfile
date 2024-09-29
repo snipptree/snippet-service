@@ -1,7 +1,5 @@
 FROM alpine:latest
-
-RUN mkdir /app
-
-COPY snippetApp /app
-
-CMD ["/app/snippetApp"]
+WORKDIR /app
+COPY snippetApp /app/snippetApp
+EXPOSE 80
+CMD ["./snippetApp"]
