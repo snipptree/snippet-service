@@ -39,6 +39,7 @@ func (app *Config) Routes() http.Handler {
 	})
 	mux.Get("/", app.SnippetHome)
 	mux.Get("/search", app.SearchSnippet)
+	mux.Get("/snippet/{id}", app.GetSnippetById)
 
 	protectedRouter := chi.NewRouter()
 	protectedRouter.Use(corsMiddleware)

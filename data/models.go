@@ -3,6 +3,7 @@ package data
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"snippet-service/constants"
 	"time"
@@ -99,20 +100,30 @@ func (repo *SnippetRepository) GetOne(id string) (*Snippet, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
+	// Get the collection
 	collection := repo.client.Database(constants.DATABASE_NAME).Collection(constants.SNIPPETS_COLLECTION)
 
+	// Convert string ID to MongoDB ObjectID
 	objectId, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid ID format: %v", err)
 	}
 
-	var Snippet Snippet
-	singleResult := collection.FindOne(ctx, bson.M{"_id": objectId}).Decode(&Snippet)
-	if singleResult.Error() != "" {
-		return nil, err
+	// Define a Snippet object to store the result
+	var snippet Snippet
+
+	// Fetch the snippet from the collection
+	err = collection.FindOne(ctx, bson.M{"_id": objectId}).Decode(&snippet)
+	if err != nil {
+		// Check if the error is "no documents found"
+		if err == mongo.ErrNoDocuments {
+			return nil, fmt.Errorf("snippet not found")
+		}
+		return nil, fmt.Errorf("error fetching snippet: %v", err)
 	}
 
-	return &Snippet, nil
+	// Return the fetched snippet
+	return &snippet, nil
 }
 
 func (repo *SnippetRepository) DropCollection() error {

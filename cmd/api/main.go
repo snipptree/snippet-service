@@ -77,6 +77,9 @@ func connectToMongo() (*mongo.Client, error) {
 
 func (app *Config) setUpRepo(client *mongo.Client) {
 	repo := data.NewSnippetRepository(client)
+	if repo == nil {
+		log.Println("SnippetRepository is nil")
+	}
 	userRepo := data.NewUserRepository(client)
 	app.Repository = repo
 	app.UserRepo = *userRepo

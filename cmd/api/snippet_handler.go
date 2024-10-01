@@ -20,6 +20,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/go-chi/chi/v5"
 	"github.com/golang-jwt/jwt"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -362,6 +363,33 @@ func (app *Config) fetchGeneratedSnippet(query string) (*data.Snippet, error) {
 	} else {
 		return nil, errors.New("no snippet available from OpenAI")
 	}
+}
+
+func (app *Config) GetSnippetById(w http.ResponseWriter, r *http.Request) {
+	// Extract the snippet ID from the URL parameters
+	snippetID := chi.URLParam(r, "id")
+
+	// Validate if snippet ID is provided
+	if snippetID == "" {
+		app.errorJSON(w, errors.New("missing snippet ID"), http.StatusBadRequest)
+		return
+	}
+
+	// Fetch snippet by ID from the repository
+	snippet, err := app.Repository.GetOne(snippetID)
+	if err != nil {
+		log.Println("Error fetching snippet:", err)
+		app.errorJSON(w, errors.New("snippet not found"), http.StatusNotFound)
+		return
+	}
+
+	// Respond with the fetched snippet
+	payload := jsonResponse{
+		Error:   false,
+		Message: "Snippet retrieved successfully",
+		Data:    snippet,
+	}
+	app.writeJSON(w, http.StatusOK, payload)
 }
 
 func (app *Config) GetEmailFromAuthToken(w http.ResponseWriter, r *http.Request) string {
