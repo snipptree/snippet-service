@@ -387,7 +387,7 @@ func (app *Config) GetSnippetById(w http.ResponseWriter, r *http.Request) {
 	payload := jsonResponse{
 		Error:   false,
 		Message: "Snippet retrieved successfully",
-		Data:    snippet,
+		Data:    []*data.Snippet{snippet},
 	}
 	app.writeJSON(w, http.StatusOK, payload)
 }
