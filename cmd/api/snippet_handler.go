@@ -371,7 +371,7 @@ func (app *Config) GetSnippetById(w http.ResponseWriter, r *http.Request) {
 
 	// Validate if snippet ID is provided
 	if snippetID == "" {
-		app.errorJSON(w, errors.New("missing snippet ID"), http.StatusBadRequest)
+		app.errorJSON(w, errors.New("missing snippet ID"), http.StatusOK)
 		return
 	}
 
@@ -379,7 +379,7 @@ func (app *Config) GetSnippetById(w http.ResponseWriter, r *http.Request) {
 	snippet, err := app.Repository.GetOne(snippetID)
 	if err != nil {
 		log.Println("Error fetching snippet:", err)
-		app.errorJSON(w, errors.New("snippet not found"), http.StatusNotFound)
+		app.errorJSON(w, errors.New("snippet not found"), http.StatusOK)
 		return
 	}
 
