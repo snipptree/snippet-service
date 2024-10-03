@@ -6,10 +6,11 @@ import (
 )
 
 type Repository interface {
+	GetById(id string) (*Snippet, error)
 	Insert(snippet Snippet) (string, error)
 	All() ([]*Snippet, error)
 	GetOne(id string) (*Snippet, error)
-	Update(snippet Snippet) (*mongo.UpdateResult, error)
+	Update(snippetID string, updateData bson.M) (*mongo.UpdateResult, error)
 	Aggregate(pipeline any) ([]*Snippet, error)
 	Exists(title string) (bool, error)
 	DropCollection() error

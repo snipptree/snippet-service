@@ -416,3 +416,140 @@ func (app *Config) GetEmailFromAuthToken(w http.ResponseWriter, r *http.Request)
 	}
 	return userEmail
 }
+
+func (app *Config) LikeSnippet(w http.ResponseWriter, r *http.Request) {
+	// Extract user email from JWT
+	userEmail := app.GetEmailFromAuthToken(w, r)
+
+	// Extract the snippet ID from the URL parameters
+	snippetID := chi.URLParam(r, "id")
+	if snippetID == "" {
+		app.errorJSON(w, errors.New("missing snippet ID"), http.StatusBadRequest)
+		return
+	}
+
+	// Log the request for debugging
+	log.Printf("User %s liked snippet %s", userEmail, snippetID)
+
+	// Fetch user by email
+	user, err := app.UserRepo.GetByEmail(userEmail)
+	if err != nil {
+		app.errorJSON(w, errors.New("user not found"), http.StatusNotFound)
+		return
+	}
+
+	// Fetch snippet by ID
+	snippet, err := app.Repository.GetById(snippetID)
+	if err != nil {
+		app.errorJSON(w, errors.New("snippet not found"), http.StatusNotFound)
+		return
+	}
+
+	// Check if snippet is already liked by user
+	for _, id := range user.LikedSnippets {
+		if id == snippetID {
+			app.errorJSON(w, errors.New("snippet already liked"), http.StatusConflict)
+			return
+		}
+	}
+
+	// Update user's liked snippets
+	user.LikedSnippets = append(user.LikedSnippets, snippetID)
+	updateMap := bson.M{"liked_snippets": user.LikedSnippets}
+	err = app.UserRepo.Update(*user, updateMap)
+	if err != nil {
+		app.errorJSON(w, errors.New("failed to update user liked snippets"), http.StatusInternalServerError)
+		return
+	}
+
+	// Add user email to the snippet's likes array
+	snippet.Likes = append(snippet.Likes, user.ID.Hex())
+	snippetUpdateMap := bson.M{"likes": snippet.Likes, "updated_at": time.Now()}
+	_, err = app.Repository.Update(snippetID, snippetUpdateMap)
+	if err != nil {
+		app.errorJSON(w, errors.New("failed to update snippet likes"), http.StatusInternalServerError)
+		return
+	}
+
+	payload := jsonResponse{
+		Error:   false,
+		Message: "Snippet liked successfully",
+	}
+	app.writeJSON(w, http.StatusOK, payload)
+}
+
+func (app *Config) UnlikeSnippet(w http.ResponseWriter, r *http.Request) {
+	// Extract user email from JWT
+	userEmail := app.GetEmailFromAuthToken(w, r)
+
+	// Extract the snippet ID from the URL parameters
+	snippetID := chi.URLParam(r, "id")
+	if snippetID == "" {
+		app.errorJSON(w, errors.New("missing snippet ID"), http.StatusBadRequest)
+		return
+	}
+
+	// Log the request for debugging
+	log.Printf("User %s unliked snippet %s", userEmail, snippetID)
+
+	// Fetch user by email
+	user, err := app.UserRepo.GetByEmail(userEmail)
+	if err != nil {
+		app.errorJSON(w, errors.New("user not found"), http.StatusNotFound)
+		return
+	}
+
+	// Fetch snippet by ID
+	snippet, err := app.Repository.GetById(snippetID)
+	if err != nil {
+		app.errorJSON(w, errors.New("snippet not found"), http.StatusNotFound)
+		return
+	}
+
+	// Check if snippet is liked by the user
+	likedIndex := -1
+	for i, id := range user.LikedSnippets {
+		if id == snippetID {
+			likedIndex = i
+			break
+		}
+	}
+	if likedIndex == -1 {
+		app.errorJSON(w, errors.New("snippet not liked"), http.StatusConflict)
+		return
+	}
+
+	// Remove snippet from user's liked snippets
+	user.LikedSnippets = append(user.LikedSnippets[:likedIndex], user.LikedSnippets[likedIndex+1:]...)
+	updateMap := bson.M{"liked_snippets": user.LikedSnippets}
+	err = app.UserRepo.Update(*user, updateMap)
+	if err != nil {
+		app.errorJSON(w, errors.New("failed to update user liked snippets"), http.StatusInternalServerError)
+		return
+	}
+
+	// Remove user email from snippet's likes array
+	likesIndex := -1
+	for i, userId := range snippet.Likes {
+		if userId == user.ID.Hex() {
+			likesIndex = i
+			break
+		}
+	}
+
+	if likesIndex != -1 {
+		snippet.Likes = append(snippet.Likes[:likesIndex], snippet.Likes[likesIndex+1:]...)
+		snippetUpdateMap := bson.M{"likes": snippet.Likes, "updated_at": time.Now()}
+		_, err = app.Repository.Update(snippetID, snippetUpdateMap)
+		if err != nil {
+			app.errorJSON(w, errors.New("failed to update snippet likes"), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	payload := jsonResponse{
+		Error:   false,
+		Message: "Snippet unliked successfully",
+	}
+	app.writeJSON(w, http.StatusOK, payload)
+}

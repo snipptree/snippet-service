@@ -34,8 +34,29 @@ type Snippet struct {
 	Output     string    `bson:"output,omitempty" json:"output,omitempty"`
 	ImagePath  string    `bson:"image,omitempty" json:"image,omitempty"`
 	Source     string    `bson:"source,omitempty" json:"source,omitempty"`
+	Likes      []string  `bson:"likes,omitempty" json:"likes,omitempty"`
 	CreatedAt  time.Time `bson:"created_at" json:"created_at"`
 	UpdatedAt  time.Time `bson:"updated_at" json:"updated_at"`
+}
+
+// GetByEmail returns one user by email.
+func (repo *SnippetRepository) GetById(id string) (*Snippet, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	collection := repo.client.Database(constants.DATABASE_NAME).Collection(constants.SNIPPETS_COLLECTION)
+	// Convert string ID to MongoDB ObjectID
+	objectId, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, fmt.Errorf("invalid ID format: %v", err)
+	}
+	var snippet Snippet
+	err = collection.FindOne(ctx, bson.M{"_id": objectId}).Decode(&snippet)
+	if err != nil {
+		return nil, err
+	}
+
+	return &snippet, nil
 }
 
 func (repo *SnippetRepository) Insert(snippet Snippet) (string, error) {
@@ -139,29 +160,28 @@ func (repo *SnippetRepository) DropCollection() error {
 	return nil
 }
 
-func (repo *SnippetRepository) Update(snippet Snippet) (*mongo.UpdateResult, error) {
+func (repo *SnippetRepository) Update(snippetID string, updateData bson.M) (*mongo.UpdateResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
 	collection := repo.client.Database(constants.DATABASE_NAME).Collection(constants.SNIPPETS_COLLECTION)
 
-	objectId, err := primitive.ObjectIDFromHex(snippet.ID)
+	objectId, err := primitive.ObjectIDFromHex(snippetID)
 	if err != nil {
 		return nil, err
+	}
+
+	// Always set the updated_at field
+	updateData["updated_at"] = time.Now()
+
+	updateQuery := bson.D{
+		{Key: "$set", Value: updateData},
 	}
 
 	updateResult, err := collection.UpdateOne(
 		ctx,
 		bson.M{"_id": objectId},
-		bson.D{
-			{Key: "$set", Value: bson.D{
-				{Key: "title", Value: snippet.Title},
-				{Key: "snippet", Value: snippet.Snippet},
-				{Key: "type", Value: snippet.Type},
-				{Key: "output", Value: snippet.Output},
-				{Key: "updated_at", Value: time.Now()},
-			}},
-		},
+		updateQuery,
 	)
 
 	if err != nil {
