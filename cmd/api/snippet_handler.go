@@ -474,6 +474,9 @@ func (app *Config) LikeSnippet(w http.ResponseWriter, r *http.Request) {
 	payload := jsonResponse{
 		Error:   false,
 		Message: "Snippet liked successfully",
+		Data: map[string]int{
+			"likes": len(snippet.Likes),
+		},
 	}
 	app.writeJSON(w, http.StatusOK, payload)
 }
@@ -550,6 +553,9 @@ func (app *Config) UnlikeSnippet(w http.ResponseWriter, r *http.Request) {
 	payload := jsonResponse{
 		Error:   false,
 		Message: "Snippet unliked successfully",
+		Data: map[string]int{
+			"likes": len(snippet.Likes),
+		},
 	}
 	app.writeJSON(w, http.StatusOK, payload)
 }
