@@ -298,6 +298,7 @@ func (app *Config) SearchSnippet(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		generatedSnippet.TotalLikes = len(generatedSnippet.Likes)
 		snippets = append(snippets, generatedSnippet)
 	}
 

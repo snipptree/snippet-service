@@ -35,7 +35,8 @@ type Snippet struct {
 	Output     string    `bson:"output,omitempty" json:"output,omitempty"`
 	ImagePath  string    `bson:"image,omitempty" json:"image,omitempty"`
 	Source     string    `bson:"source,omitempty" json:"source,omitempty"`
-	Likes      []string  `bson:"likes,omitempty" json:"likes,omitempty"`
+	Likes      []string  `bson:"likes,omitempty" json:"-"`
+	TotalLikes int       `json:"total_likes"`
 	IsLiked    bool      `bson:"is_liked,omitempty" json:"is_liked,omitempty"`
 	CreatedAt  time.Time `bson:"created_at" json:"created_at"`
 	UpdatedAt  time.Time `bson:"updated_at" json:"updated_at"`
@@ -144,6 +145,7 @@ func (repo *SnippetRepository) GetOne(id string) (*Snippet, error) {
 		}
 		return nil, fmt.Errorf("error fetching snippet: %v", err)
 	}
+	snippet.TotalLikes = len(snippet.Likes)
 
 	// Return the fetched snippet
 	return &snippet, nil
@@ -223,6 +225,7 @@ func (repo *SnippetRepository) Aggregate(pipeline any, userEmail string) ([]*Sni
 			item.IsLiked = utils.Contains(item.Likes, userEmail)
 		}
 
+		item.TotalLikes = len(item.Likes)
 		snippets = append(snippets, &item)
 	}
 
