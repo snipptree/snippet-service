@@ -415,6 +415,31 @@ func (app *Config) GetSnippetById(w http.ResponseWriter, r *http.Request) {
 	app.writeJSON(w, http.StatusOK, payload)
 }
 
+func (app *Config) DeleteSnippetById(w http.ResponseWriter, r *http.Request) {
+	snippetID := chi.URLParam(r, "id")
+	// Validate if snippet ID is provided
+	if snippetID == "" {
+		app.errorJSON(w, errors.New("missing snippet ID"), http.StatusOK)
+		return
+	}
+
+	// Fetch snippet by ID from the repository
+	snippet, err := app.Repository.DeleteOne(snippetID)
+	if err != nil {
+		log.Println("Error fetching snippet:", err)
+		app.errorJSON(w, errors.New("snippet not found"), http.StatusOK)
+		return
+	}
+
+	// Respond with the fetched snippet
+	payload := jsonResponse{
+		Error:   false,
+		Message: "Snippet deleted successfully",
+		Data:    []*data.Snippet{snippet},
+	}
+	app.writeJSON(w, http.StatusOK, payload)
+}
+
 func (app *Config) GetEmailFromAuthToken(w http.ResponseWriter, r *http.Request) string {
 	// Extract user email from JWT
 	tokenString := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")

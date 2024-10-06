@@ -10,6 +10,7 @@ type Repository interface {
 	Insert(snippet Snippet) (string, error)
 	All() ([]*Snippet, error)
 	GetOne(id string) (*Snippet, error)
+	DeleteOne(id string) (*Snippet, error)
 	Update(snippetID string, updateData bson.M) (*mongo.UpdateResult, error)
 	Aggregate(pipeline any, userEmail string) ([]*Snippet, error)
 	Exists(title string) (bool, error)

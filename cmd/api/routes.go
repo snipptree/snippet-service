@@ -48,6 +48,7 @@ func (app *Config) Routes() http.Handler {
 	protectedRouter.Get("/user/snippets", app.GetUserSnippets)
 	protectedRouter.Post("/snippet/{id}/like", app.LikeSnippet)
 	protectedRouter.Delete("/snippet/{id}/unlike", app.UnlikeSnippet)
+	protectedRouter.Delete("/snippet/{id}", app.DeleteSnippetById)
 
 	mux.Mount("/", protectedRouter)
 

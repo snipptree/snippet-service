@@ -151,6 +151,48 @@ func (repo *SnippetRepository) GetOne(id string) (*Snippet, error) {
 	return &snippet, nil
 }
 
+func (repo *SnippetRepository) DeleteOne(id string) (*Snippet, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	// Get the collection
+	collection := repo.client.Database(constants.DATABASE_NAME).Collection(constants.SNIPPETS_COLLECTION)
+	userCollection := repo.client.Database(constants.DATABASE_NAME).Collection(constants.USERS_COLLECTION)
+
+	// Convert string ID to MongoDB ObjectID
+	objectId, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, fmt.Errorf("invalid ID format: %v", err)
+	}
+
+	// Define a Snippet object to store the result
+	var snippet Snippet
+
+	// Fetch the snippet from the collection
+	err = collection.FindOneAndDelete(ctx, bson.M{"_id": objectId}).Decode(&snippet)
+	if err != nil {
+		// Check if the error is "no documents found"
+		if err == mongo.ErrNoDocuments {
+			return nil, fmt.Errorf("snippet not found")
+		}
+		return nil, fmt.Errorf("error fetching snippet: %v", err)
+	}
+
+	if snippet.UserId != "" {
+		// Remove the snippet ID from the user's snippet array
+		_, err := userCollection.UpdateOne(
+			ctx,
+			bson.M{"email": snippet.UserId}, // Find the user by their ID
+			bson.M{"$pull": bson.M{"snippets": objectId.Hex()}}, // Remove the snippet ID from the snippets array
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error updating user document: %v", err)
+		}
+	}
+
+	return &snippet, nil
+}
+
 func (repo *SnippetRepository) DropCollection() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
