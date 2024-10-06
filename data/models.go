@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"snippet-service/constants"
+	"snippet-service/utils"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -35,6 +36,7 @@ type Snippet struct {
 	ImagePath  string    `bson:"image,omitempty" json:"image,omitempty"`
 	Source     string    `bson:"source,omitempty" json:"source,omitempty"`
 	Likes      []string  `bson:"likes,omitempty" json:"likes,omitempty"`
+	IsLiked    bool      `bson:"is_liked,omitempty" json:"is_liked,omitempty"`
 	CreatedAt  time.Time `bson:"created_at" json:"created_at"`
 	UpdatedAt  time.Time `bson:"updated_at" json:"updated_at"`
 }
@@ -190,7 +192,7 @@ func (repo *SnippetRepository) Update(snippetID string, updateData bson.M) (*mon
 	return updateResult, nil
 }
 
-func (repo *SnippetRepository) Aggregate(pipeline any) ([]*Snippet, error) {
+func (repo *SnippetRepository) Aggregate(pipeline any, userEmail string) ([]*Snippet, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
@@ -216,6 +218,11 @@ func (repo *SnippetRepository) Aggregate(pipeline any) ([]*Snippet, error) {
 			log.Println("error decoding item to snippet", err)
 			return nil, err
 		}
+
+		if userEmail != "" {
+			item.IsLiked = utils.Contains(item.Likes, userEmail)
+		}
+
 		snippets = append(snippets, &item)
 	}
 

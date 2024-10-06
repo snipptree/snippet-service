@@ -11,7 +11,7 @@ type Repository interface {
 	All() ([]*Snippet, error)
 	GetOne(id string) (*Snippet, error)
 	Update(snippetID string, updateData bson.M) (*mongo.UpdateResult, error)
-	Aggregate(pipeline any) ([]*Snippet, error)
+	Aggregate(pipeline any, userEmail string) ([]*Snippet, error)
 	Exists(title string) (bool, error)
 	DropCollection() error
 }

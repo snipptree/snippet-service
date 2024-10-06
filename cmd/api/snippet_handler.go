@@ -236,6 +236,28 @@ func (app *Config) SearchSnippet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tokenString := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	userEmail := ""
+
+	if tokenString != "" {
+		token, err := middleware.ValidateJWT(tokenString)
+		if err != nil || !token.Valid {
+			log.Println("invalid token:", err)
+			app.errorJSON(w, errors.New("invalid token"), http.StatusUnauthorized)
+		}
+
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			log.Println("invalid token claims")
+			app.errorJSON(w, errors.New("invalid token claims"), http.StatusUnauthorized)
+		}
+		userEmail, ok = claims["email"].(string)
+		if !ok {
+			log.Println("email claim not found")
+			app.errorJSON(w, errors.New("email claim not found"), http.StatusUnauthorized)
+		}
+	}
+
 	searchStage := bson.D{
 		{Key: "$search", Value: bson.D{
 			{Key: "index", Value: "snippet_title"}, //index name
@@ -254,7 +276,7 @@ func (app *Config) SearchSnippet(w http.ResponseWriter, r *http.Request) {
 	// Create a pipeline with the search stage
 	pipeline := mongo.Pipeline{searchStage}
 
-	snippets, err := app.Repository.Aggregate(pipeline)
+	snippets, err := app.Repository.Aggregate(pipeline, userEmail)
 	if err != nil {
 		log.Println("Error executing search:", err)
 		app.errorJSON(w, err, http.StatusInternalServerError)
@@ -463,7 +485,7 @@ func (app *Config) LikeSnippet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add user email to the snippet's likes array
-	snippet.Likes = append(snippet.Likes, user.ID.Hex())
+	snippet.Likes = append(snippet.Likes, user.Email)
 	snippetUpdateMap := bson.M{"likes": snippet.Likes, "updated_at": time.Now()}
 	_, err = app.Repository.Update(snippetID, snippetUpdateMap)
 	if err != nil {
@@ -534,7 +556,7 @@ func (app *Config) UnlikeSnippet(w http.ResponseWriter, r *http.Request) {
 	// Remove user email from snippet's likes array
 	likesIndex := -1
 	for i, userId := range snippet.Likes {
-		if userId == user.ID.Hex() {
+		if userId == user.Email {
 			likesIndex = i
 			break
 		}
