@@ -5,13 +5,8 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"snippet-service/data"
 )
-
-type jsonResponse struct {
-	Error   bool   `json:"error"`
-	Message string `json:"message"`
-	Data    any    `json:"data,omitempty"`
-}
 
 func (app *Config) readJSON(w http.ResponseWriter, r *http.Request, data any) error {
 	maxBytes := 1048576 //One Megabyte
@@ -61,7 +56,7 @@ func (app *Config) errorJSON(w http.ResponseWriter, err error, status ...int) er
 		statusCode = status[0]
 	}
 
-	var payload jsonResponse
+	var payload data.JsonResponse
 	payload.Error = true
 
 	if err != nil {

@@ -174,7 +174,7 @@ func (app *Config) CreateSnippet(w http.ResponseWriter, r *http.Request) {
 
 	// Send a success response
 	log.Println("sending success response...")
-	var payload jsonResponse
+	var payload data.JsonResponse
 	payload.Error = false
 	payload.Message = "snippet saved successfully"
 	app.writeJSON(w, http.StatusOK, payload)
@@ -195,7 +195,7 @@ func (app *Config) GetUserSnippets(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		payload := jsonResponse{
+		payload := data.JsonResponse{
 			Error:   false,
 			Message: "Hurray, Here are your beautiful snippets.",
 			Data:    snippets,
@@ -203,7 +203,7 @@ func (app *Config) GetUserSnippets(w http.ResponseWriter, r *http.Request) {
 
 		app.writeJSON(w, http.StatusOK, payload)
 	} else {
-		payload := jsonResponse{
+		payload := data.JsonResponse{
 			Error:   true,
 			Message: "Unable to find user email",
 		}
@@ -311,7 +311,7 @@ func (app *Config) SearchSnippet(w http.ResponseWriter, r *http.Request) {
 		responseMessage = "No snippets found for your search, Please comeback later!"
 	}
 
-	payload := jsonResponse{
+	payload := data.JsonResponse{
 		Error:   false,
 		Message: responseMessage,
 		Data:    snippets,
@@ -407,7 +407,7 @@ func (app *Config) GetSnippetById(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Respond with the fetched snippet
-	payload := jsonResponse{
+	payload := data.JsonResponse{
 		Error:   false,
 		Message: "Snippet retrieved successfully",
 		Data:    []*data.Snippet{snippet},
@@ -432,7 +432,7 @@ func (app *Config) DeleteSnippetById(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Respond with the fetched snippet
-	payload := jsonResponse{
+	payload := data.JsonResponse{
 		Error:   false,
 		Message: "Snippet deleted successfully",
 		Data:    []*data.Snippet{snippet},
@@ -519,7 +519,7 @@ func (app *Config) LikeSnippet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	payload := jsonResponse{
+	payload := data.JsonResponse{
 		Error:   false,
 		Message: "Snippet liked successfully",
 		Data: map[string]int{
@@ -598,7 +598,7 @@ func (app *Config) UnlikeSnippet(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	payload := jsonResponse{
+	payload := data.JsonResponse{
 		Error:   false,
 		Message: "Snippet unliked successfully",
 		Data: map[string]int{

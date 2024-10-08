@@ -1,7 +1,9 @@
 package middleware
 
 import (
+	"encoding/json"
 	"net/http"
+	"snippet-service/data"
 	"strings"
 
 	"github.com/golang-jwt/jwt"
@@ -26,25 +28,43 @@ func JWTMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
-			http.Error(w, "Missing Authorization Header", http.StatusUnauthorized)
+			writeJSONError(w, "Missing Authorization Header", http.StatusUnauthorized)
 			return
 		}
 
 		// Extract the token from the header
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		if tokenString == "" {
-			http.Error(w, "Invalid Authorization Header", http.StatusUnauthorized)
+			writeJSONError(w, "Invalid Authorization Header", http.StatusUnauthorized)
 			return
 		}
 
 		// Validate the token
 		token, err := ValidateJWT(tokenString)
 		if err != nil || !token.Valid {
-			http.Error(w, "Invalid Token", http.StatusUnauthorized)
+			writeJSONError(w, "Invalid Token", http.StatusUnauthorized)
 			return
 		}
 
 		// If token is valid, proceed to the next handler
 		next.ServeHTTP(w, r)
 	})
+}
+
+func writeJSONError(w http.ResponseWriter, message string, statusCode int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+
+	resp := data.JsonResponse{
+		Error:   true,
+		Message: message,
+	}
+
+	jsonResp, err := json.Marshal(resp)
+	if err != nil {
+		http.Error(w, "Could not process response", http.StatusInternalServerError)
+		return
+	}
+
+	w.Write(jsonResp)
 }

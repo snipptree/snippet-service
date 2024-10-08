@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 
+	"snippet-service/data"
 	appMiddleware "snippet-service/middleware"
 
 	"github.com/go-chi/chi/v5"
@@ -31,7 +32,7 @@ func (app *Config) Routes() http.Handler {
 	mux.Use(middleware.Heartbeat("/ping"))
 
 	mux.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		payload := jsonResponse{
+		payload := data.JsonResponse{
 			Error:   false,
 			Message: "healthy",
 		}

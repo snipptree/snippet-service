@@ -15,6 +15,12 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+type JsonResponse struct {
+	Error   bool   `json:"error"`
+	Message string `json:"message"`
+	Data    any    `json:"data,omitempty"`
+}
+
 type SnippetRepository struct {
 	client *mongo.Client
 }
@@ -268,7 +274,9 @@ func (repo *SnippetRepository) Aggregate(pipeline any, userEmail string) ([]*Sni
 		}
 
 		item.TotalLikes = len(item.Likes)
-		snippets = append(snippets, &item)
+		if item.Type == "public" {
+			snippets = append(snippets, &item)
+		}
 	}
 
 	return snippets, nil
