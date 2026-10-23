@@ -15,6 +15,10 @@ spec:
       containers:
       - name: snippet-service
         image: 727646499255.dkr.ecr.ap-south-1.amazonaws.com/snippet-service:latest
+        # MONGO_URL, JWT_SECRET, OPENAI_API_KEY, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+        envFrom:
+        - secretRef:
+            name: snipptree-secrets
         # resources:
         #   requests: 
         #     cpu: "100m"

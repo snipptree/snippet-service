@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"snippet-service/data"
@@ -13,10 +14,12 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+// mongoURL is read from the MONGO_URL environment variable.
+var mongoURL = os.Getenv("MONGO_URL")
+
 const (
 	webPort  = "80"
 	rpcPort  = "5001"
-	mongoURL = "mongodb+srv://REDACTED_USER:REDACTED_PASSWORD@snipptree-dev.cza8e.mongodb.net/?retryWrites=true&w=majority&appName=snipptree-dev"
 	gRPCPort = "5001"
 )
 
@@ -29,6 +32,12 @@ type Config struct {
 
 func main() {
 	log.Printf("starting snippet service on PORT %s", webPort)
+	if mongoURL == "" {
+		log.Fatal("MONGO_URL must be set")
+	}
+	if os.Getenv("JWT_SECRET") == "" {
+		log.Fatal("JWT_SECRET must be set")
+	}
 
 	// connect to mongo
 	mongoClient, err := connectToMongo()

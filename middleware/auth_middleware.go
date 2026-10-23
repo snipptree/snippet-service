@@ -3,6 +3,7 @@ package middleware
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 	"snippet-service/data"
 	"strings"
 
@@ -10,7 +11,7 @@ import (
 )
 
 // Secret key for signing JWT tokens
-var jwtSecret = []byte("REDACTED_JWT_SECRET")
+var jwtSecret = []byte(os.Getenv("JWT_SECRET"))
 
 // ValidateJWT parses and validates the JWT token
 func ValidateJWT(tokenString string) (*jwt.Token, error) {

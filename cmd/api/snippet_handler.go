@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 	"snippet-service/data"
 	"snippet-service/middleware"
@@ -17,7 +18,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/go-chi/chi/v5"
@@ -33,8 +33,7 @@ type SearchSnippetsResult struct {
 
 // Initialize your S3 client (use this once in the config or startup)
 func (app *Config) initS3Client() (*s3.Client, error) {
-	staticCredentials := aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider("REDACTED_AWS_ACCESS_KEY_ID", "REDACTED_AWS_SECRET_ACCESS_KEY", ""))
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion("ap-south-1"), config.WithCredentialsProvider(staticCredentials))
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion("ap-south-1"))
 	if err != nil {
 		return nil, fmt.Errorf("unable to load AWS SDK config: %v", err)
 	}
@@ -320,7 +319,10 @@ func (app *Config) SearchSnippet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *Config) fetchGeneratedSnippet(query string) (*data.Snippet, error) {
-	apiKey := "REDACTED_OPENAI_API_KEY"
+	apiKey := os.Getenv("OPENAI_API_KEY")
+	if apiKey == "" {
+		return nil, errors.New("OPENAI_API_KEY is not set")
+	}
 
 	openAIPayload := map[string]interface{}{
 		"model": "gpt-4", // use the correct OpenAI model name
